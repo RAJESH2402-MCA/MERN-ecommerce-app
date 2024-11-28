@@ -1,0 +1,532 @@
+import { useEffect, useState } from "react";
+
+
+import CommonForm from "../common/form";
+import { addressFormControls } from "@/config";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { useDispatch, useSelector } from "react-redux";
+import { addNewAddress, deleteAddress, fetchAllAddresses, } from "@/store/shop/address-slice";
+import AddressCard from "./address-card";
+
+
+const initialAddressFormData =  {
+    address : '',
+    city : '',
+    phone : '',
+    pincode : '',
+    notes : '',
+};
+
+
+function Address() {
+
+    const [formData, setFormData] = useState(initialAddressFormData)
+    const {user} = useSelector((state) => state.auth);
+    const {addressList} = useSelector((state) => state.shopAddress);
+    const dispatch = useDispatch();
+    
+    function handleManageAddress(event){
+        event.preventDefault();
+
+        dispatch(
+            addNewAddress({
+            ...formData,
+            userId : user?.id,
+            })
+        ).then((data)=>{
+           
+            if(data?.payload?.success){
+              dispatch(fetchAllAddresses(user?.id)); 
+              setFormData(initialAddressFormData);
+            }
+    
+        });
+    
+    }
+
+    function handleDeleteAddress(getCurrentAddress){
+    
+
+        dispatch(deleteAddress({userId : user?.id, addressId : getCurrentAddress._id})).then(data=>{
+            if(data?.payload?.success){
+                dispatch(fetchAllAddresses(user?.id))
+            }
+        })
+    }
+    
+    function isFormValid(){
+        
+       return Object.keys(formData).map((key) => formData[key].trim() !== '').every((item) => item);
+    }
+
+    useEffect(()=>{
+        dispatch(fetchAllAddresses(user?.id))
+    },[dispatch])
+
+    console.log(addressList,"addressList")
+    return(
+       <Card>
+        <div className="mb-5 p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {
+                addressList && addressList.length > 0 ?
+                addressList.map((singleAddressItem) => (<AddressCard 
+                    handleDeleteAddress={handleDeleteAddress}
+                    addressInfo={singleAddressItem}/>)) 
+                : null
+            }
+        </div>
+       
+       <CardHeader>
+        <CardTitle>Add new Address</CardTitle>
+       </CardHeader>
+       <CardContent className="space-y-3">
+        <CommonForm
+            formControls={addressFormControls}
+            formData={formData}
+            setFormData={setFormData}
+            buttonText={"Add"}
+            onSubmit={handleManageAddress}
+            isBtnDisabled={!isFormValid()}
+            />
+       </CardContent>
+       </Card>
+    )
+}
+
+export default Address;
+
+
+/////////////////////////////Adress.jsx
+import { Button } from "../ui/button";
+import { CardContent, Card, CardFooter } from "../ui/card";
+import { Label } from "../ui/label";
+
+function AddressCard({addressInfo, handleDeleteAddress, handleEditAddress}){
+    return(
+        <Card>
+            <CardContent className="grid p-4 gap-4">
+                <Label>Address : {addressInfo?.address}</Label>
+                <Label>City : {addressInfo?.city}</Label>
+                <Label>pinCode : {addressInfo?.pincode}</Label>
+                <Label>phone : {addressInfo?.phone}</Label>
+                <Label>Notes: {addressInfo?.notes}</Label>
+            </CardContent>
+            <CardFooter className="p-3 flex justify-between">
+            <Button>Edit</Button>
+                <Button onClick={()=>handleDeleteAddress(addressInfo)} >Delete</Button>
+            </CardFooter>
+        </Card>
+    );
+}
+
+export default AddressCard;
+///////////////////////AdressCard.jsx
+
+import { Tabs,TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import accImg from "../../assets/account.jpg";
+
+import Address from "@/components/shopping-view/address";
+import Orders from "@/components/shopping-view/orders";
+
+
+
+function ShoppingAccount(){
+    return(
+        <div className="flex flex-col">
+           <div className="relative h-[300px] w-full overflow-hidden">
+            <img src={accImg}
+            className="h-full w-full object-cover object-center"
+            />
+           </div>
+           <div className="container mx-auto grid grid-cols-1 gap-8 py-8">
+            <div className="flex flex-col rounded-1g border bg-background p-6 shadow-sm">
+                <Tabs defaultValue="orders">
+                    <TabsList>
+                        <TabsTrigger value="orders">Orders</TabsTrigger>
+                        <TabsTrigger value="address">Address</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="orders">
+                        <Orders/>
+                    </TabsContent>
+                    
+                    <TabsContent value="address">
+                        <Address/>
+                    </TabsContent>
+                </Tabs>
+            </div>
+           </div>
+        </div>
+    )
+}
+export default ShoppingAccount;
+///////////// 
+import { Tabs,TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import accImg from "../../assets/account.jpg";
+
+import Address from "@/components/shopping-view/address";
+import Orders from "@/components/shopping-view/orders";
+
+
+
+function ShoppingAccount(){
+    return(
+        <div className="flex flex-col">
+           <div className="relative h-[300px] w-full overflow-hidden">
+            <img src={accImg}
+            className="h-full w-full object-cover object-center"
+            />
+           </div>
+           <div className="container mx-auto grid grid-cols-1 gap-8 py-8">
+            <div className="flex flex-col rounded-1g border bg-background p-6 shadow-sm">
+                <Tabs defaultValue="orders">
+                    <TabsList>
+                        <TabsTrigger value="orders">Orders</TabsTrigger>
+                        <TabsTrigger value="address">Address</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="orders">
+                        <Orders/>
+                    </TabsContent>
+                    
+                    <TabsContent value="address">
+                        <Address/>
+                    </TabsContent>
+                </Tabs>
+            </div>
+           </div>
+        </div>
+    )
+}
+export default ShoppingAccount;
+
+/////////////////account.jsx
+
+
+import{createSlice, createAsyncThunk} from '@reduxjs/toolkit'
+import axios from 'axios';
+
+const initialState = {
+    isLoading : false,
+    addressList : [],
+}
+
+export const addNewAddress = createAsyncThunk('/addresses/addNewAddress',
+    async(formData)=>{
+    const response = await axios.post("http://localhost:5000/api/shop/address/add",
+        formData
+    );
+    return response.data;
+});
+
+export const fetchAllAddresses = createAsyncThunk('/addresses/fetchAllAddresses',
+    async(userId)=>{
+    const response = await axios.get(`http://localhost:5000/api/shop/address/get/${userId}`
+        
+    );
+    return response.data;
+});
+
+export const editaAddress = createAsyncThunk('/addresses/editaAddress',
+    async({userId,addressId,formData})=>{
+    const response = await axios.put(`http://localhost:5000/api/shop/address/update/${userId}/${addressId}`,
+        formData
+    );
+    return response.data;
+});
+
+export const deleteAddress = createAsyncThunk('/addresses/deleteAddress',
+    async({userId, addressId})=>{
+    const response = await axios.delete(`http://localhost:5000/api/shop/address/delete/${userId}/${addressId}`,
+        formData
+    );
+    return response.data;
+});
+
+const addressSlice = createSlice({
+    name : 'address',
+    initialState,
+    reducers : {},
+    extraReducers : (builder) => {
+        builder.addCase(addNewAddress.pending, (state)=>{
+            state.isLoading = true;
+        }).addCase(addNewAddress.fulfilled, (state)=>{
+            state.isLoading = false;   
+        }).addCase(addNewAddress.rejected, (state)=>{
+            state.isLoading = false;  
+        }).addCase(fetchAllAddresses.pending, (state)=>{
+            state.isLoading = true;
+        }).addCase(fetchAllAddresses.fulfilled, (state,action)=>{
+            state.isLoading = false;
+            state.addressList = action.payload.data
+        }).addCase(fetchAllAddresses.rejected, (state)=>{
+            state.isLoading = false;
+            state.addressList = [];
+        })
+    },
+});
+
+export default addressSlice.reducer;
+////////////addressSlice
+
+
+
+const Address = require("../../models/Address")
+
+
+const addAddress = async(req,res) => {
+    try{
+
+        const {userId, address, city, pincode, phone, notes} = req.body;
+
+        if(!userId  || !address ||!city || !pincode || !notes || !phone){
+            return res.status(400).json({
+                success : false,
+                message : 'Invalid data provided!'
+            })
+        }
+
+        const newlyCreatedAddress = new Address({
+            userId, address, city, pincode, notes, phone,
+        })
+
+        await newlyCreatedAddress.save();
+
+        res.status(201).json({
+            success : true,
+            data : newlyCreatedAddress,
+        })
+
+    }catch(e){
+        console.log(e)
+        res.status(500).json({
+            success: false,
+            messsage: 'Error'
+        })
+    }
+}
+
+const fetchAllAddress = async(req,res) => {
+    try{
+        const {userId} = req.params;
+        if(!userId ){
+            return res.status(400).json({
+                success : false,
+                message : 'User id is required!',
+            })
+        }
+
+        const addressList = await Address.find({userId})
+
+        res.status(200).json({
+            success : true,
+            data : addressList,
+        })
+
+
+    }catch(e){
+        console.log(e)
+        res.status(500).json({
+            success: false,
+            messsage: 'Error'
+        })
+    }
+}
+
+
+
+const editAddress = async(req,res) => {
+    try{
+
+        const {userId, addressId} = req.params;
+        const formData = req.body;
+
+        if(!userId || !addressId ){
+            return res.status(400).json({
+                success : false,
+                message : 'User and address id is required!',
+            })
+        }
+
+        const address = await Address.findOneAndUpdate(
+            {
+                _id: addressId,
+                userId,
+            },
+            formData,
+            {new: true}
+        );
+
+        if(!address){
+            return res.status(404).json({
+                success : false,
+                messsage : 'Address not found'
+            })
+        }
+
+        res.status(200).json({
+            success : true,
+            data : address,
+        })
+    }catch(e){
+        console.log(e)
+        res.status(500).json({
+            success: false,
+            message: 'Error'
+        })
+    }
+}
+
+
+
+const deleteAddress = async(req,res) => {
+    try{
+        const {userId, addressId} = req.params;
+
+        if(!userId || !addressId ){
+            return res.status(400).json({
+                success : false,
+                message : 'User and address id is required!',
+            })
+        }
+
+        const address = await Address.findOneAndDelete(
+            {
+                _id: addressId, 
+                userId, 
+            })
+
+        if(!address){
+            return res.status(404).json({
+                success : false,
+                messsage : 'Address not found'
+            })
+        }
+
+        res.status(200).json({
+            success : true,
+            message : 'Address deleted successfully',
+        })
+
+    }catch(e){
+        console.log(e)
+        res.status(500).json({
+            success: false,
+            messsage: 'Error'
+        })
+    }
+}
+
+module.exports = {addAddress, editAddress, fetchAllAddress, deleteAddress};
+///////////AdressControler
+
+
+import { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Dialog } from "../ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import AdminOrderDetailsView from "./order-details";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  getAllOrdersForAdmin,
+  getOrderDetailsForAdmin,
+  resetOrderDetails,
+} from "@/store/admin/order-slice";
+import { Badge } from "../ui/badge";
+
+function AdminOrdersView() {
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const { orderList, orderDetails } = useSelector((state) => state.adminOrder);
+  const dispatch = useDispatch();
+
+  function handleFetchOrderDetails(getId) {
+    dispatch(getOrderDetailsForAdmin(getId));
+  }
+
+  useEffect(() => {
+    dispatch(getAllOrdersForAdmin());
+  }, [dispatch]);
+
+  console.log(orderDetails, "orderList");
+
+  useEffect(() => {
+    if (orderDetails !== null) setOpenDetailsDialog(true);
+  }, [orderDetails]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>All Orders</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Order Date</TableHead>
+              <TableHead>Order Status</TableHead>
+              <TableHead>Order Price</TableHead>
+              <TableHead>
+                <span className="sr-only">Details</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orderList && orderList.length > 0
+              ? orderList.map((orderItem) => (
+                  <TableRow>
+                    <TableCell>{orderItem?._id}</TableCell>
+                    <TableCell>{orderItem?.orderDate.split("T")[0]}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`py-1 px-3 ${
+                          orderItem?.orderStatus === "confirmed"
+                            ? "bg-green-500"
+                            : orderItem?.orderStatus === "rejected"
+                            ? "bg-red-600"
+                            : "bg-black"
+                        }`}
+                      >
+                        {orderItem?.orderStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>${orderItem?.totalAmount}</TableCell>
+                    <TableCell>
+                      <Dialog
+                        open={openDetailsDialog}
+                        onOpenChange={() => {
+                          setOpenDetailsDialog(false);
+                          dispatch(resetOrderDetails());
+                        }}
+                      >
+                        <Button
+                          onClick={() =>
+                            handleFetchOrderDetails(orderItem?._id)
+                          }
+                        >
+                          View Details
+                        </Button>
+                        <AdminOrderDetailsView orderDetails={orderDetails} />
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              : null}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default AdminOrdersView;
+
+///admin orders view

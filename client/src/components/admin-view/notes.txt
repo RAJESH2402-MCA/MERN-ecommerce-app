@@ -1,0 +1,235 @@
+import { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Dialog } from "../ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import AdminOrderDetailsView from "./order-details";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  getAllOrdersForAdmin,
+  getOrderDetailsForAdmin,
+  resetOrderDetails,
+} from "@/store/admin/order-slice";
+import { Badge } from "../ui/badge";
+
+function AdminOrdersView() {
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const { orderList, orderDetails } = useSelector((state) => state.adminOrder);
+  const dispatch = useDispatch();
+
+  function handleFetchOrderDetails(getId) {
+    dispatch(getOrderDetailsForAdmin(getId));
+  }
+
+  useEffect(() => {
+    dispatch(getAllOrdersForAdmin());
+  }, [dispatch]);
+
+  console.log(orderDetails, "orderList");
+
+  useEffect(() => {
+    if (orderDetails !== null) setOpenDetailsDialog(true);
+  }, [orderDetails]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>All Orders</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Order Date</TableHead>
+              <TableHead>Order Status</TableHead>
+              <TableHead>Order Price</TableHead>
+              <TableHead>
+                <span className="sr-only">Details</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orderList && orderList.length > 0
+              ? orderList.map((orderItem) => (
+                  <TableRow>
+                    <TableCell>{orderItem?._id}</TableCell>
+                    <TableCell>{orderItem?.orderDate.split("T")[0]}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`py-1 px-3 ${
+                          orderItem?.orderStatus === "confirmed"
+                            ? "bg-green-500"
+                            : orderItem?.orderStatus === "rejected"
+                            ? "bg-red-600"
+                            : "bg-black"
+                        }`}
+                      >
+                        {orderItem?.orderStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>${orderItem?.totalAmount}</TableCell>
+                    <TableCell>
+                      <Dialog
+                        open={openDetailsDialog}
+                        onOpenChange={() => {
+                          setOpenDetailsDialog(false);
+                          dispatch(resetOrderDetails());
+                        }}
+                      >
+                        <Button
+                          onClick={() =>
+                            handleFetchOrderDetails(orderItem?._id)
+                          }
+                        >
+                          View Details
+                        </Button>
+                        <AdminOrderDetailsView orderDetails={orderDetails} />
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              : null}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default AdminOrdersView;
+
+/////orders.jsx
+
+
+import { Separator } from "../ui/separator";
+import { DialogContent } from "../ui/dialog";
+import { Label } from "../ui/label";
+import CommonForm from "../common/form";
+import { useState } from "react";
+import { Badge } from "../ui/badge";
+import { useSelector } from "react-redux";
+
+const initialFormData = {
+    status : '',
+}
+
+function AdminOrdersDetailsView({orderDetails}){
+
+        const [formData, setFormData] = useState(initialFormData);
+        const {user} = useSelector(state=>state.auth);
+
+        function handleUpdataStatus(event){
+            event.preventDefault()
+        }
+
+    return(
+        <DialogContent className="sm:max-w-[600px]">
+            <div className="grid gap-6">
+            <div className="grid gap-2">
+                <div className="flex mt-2 items-center justify-between">
+                    <p className="font-medium">Order ID</p>
+                    <Label>{orderDetails?._id}</Label>
+                </div>
+                <div className="flex mt-2 items-center justify-between">
+                    <p className="font-medium">Order Date</p>
+                    <Label>{orderDetails?.orderDate.split('T')[0]}</Label>
+                </div>
+               
+                <div className="flex mt-2 items-center justify-between">
+                    <p className="font-medium">Order Price</p>
+                    <Label>${orderDetails?.totalAmount}</Label>
+                </div>
+
+                <div className="flex mt-2 items-center justify-between">
+                    <p className="font-medium">paymentMethod</p>
+                    <Label>{orderDetails?.paymentMethod}</Label>
+                </div>
+                <div className="flex mt-2 items-center justify-between">
+                    <p className="font-medium">paymentStatus</p>
+                    <Label>{orderDetails?.paymentStatus}</Label>
+                </div>
+                <div className="flex mt-2 items-center justify-between">
+                    <p className="font-medium">Order Status</p>
+                    <Label>
+                    <Badge 
+                        className={`py-1 px-3 ${
+                            orderDetails?.status === 'confirmed' 
+                                ? 'bg-green-500' : 'bg-black'}`}>
+                                       
+                                    </Badge>
+                    </Label>
+                </div>
+            </div>
+                <Separator/>
+                <div className="grid gap-4">
+                <div className="grid gap-2">
+                    <div className="font-medium">Order Details</div>
+                    <ul className="grid gap-3">
+                        {
+                          orderDetails?.cartItems && orderDetails?.cartItems.length > 0 ?
+                          orderDetails?.cartItems.map((item) =>  (<li className="flex items-center judtify-between">
+                            <span>Title: {item.title}</span>
+                            <span>Quantity: {item.quantity}</span>
+                            <span>Price: ${item.price}</span>
+                        </li> )) 
+                        : null
+                        }
+                       
+                        
+                    </ul>
+                </div>
+            </div>
+            <div className="grid gap-4">
+            <div className="grid gap-2">
+            <div className="font-medium">
+                Shipping Info
+                </div>
+                <div className="grid gap-0.5 text-muted-foreground">
+                    <span>{user.userName}</span>
+                    <span>{orderDetails?.addressInfo?.address}</span>
+                    <span>{orderDetails?.addressInfo?.city}</span>
+                    <span>{orderDetails?.addressInfo?.pincode}</span>
+                    <span>{orderDetails?.addressInfo?.phone}</span>
+                    <span>{orderDetails?.addressInfo?.notes}</span>
+                </div>
+                </div>
+            </div>
+                <div>
+                    <CommonForm 
+                    formControls={[
+                        {
+                            label: "Order Status",
+                            name: "status",
+                            componentType: "select",
+                            options: [
+                                { id: "pending", label: "Pending" },
+                              { id: "inProcess", label: "In Process" },
+                              { id: "inShipping", label: "In Shipping" },
+                              { id: "delivered", label: "Delivered"},
+                              { id: "rejected", label: "Rejected" },
+                            ],
+                          },
+                    ]}
+                    formData={formData}
+                    setFormData={setFormData}
+                    buttonText={'update Order status'}
+                    onSubmit={handleUpdataStatus}
+                    />
+                </div>
+            </div>
+        </DialogContent>
+    )
+}
+
+export default AdminOrdersDetailsView;
+
+
+////orderdetails.jsx
